@@ -229,4 +229,10 @@ VALID_TRANSITIONS: dict[tuple[DecisionLifecycle, str], DecisionLifecycle] = {
     (DecisionLifecycle.EXECUTING,       "complete"): DecisionLifecycle.EXECUTED,
     (DecisionLifecycle.EXECUTING,       "fail"):     DecisionLifecycle.EXECUTION_FAILED,
     (DecisionLifecycle.EXECUTED,        "undo"):     DecisionLifecycle.UNDONE,
+    # Gateway-initiated terminal transitions
+    (DecisionLifecycle.EVALUATED,         "revalidation_fail"):  DecisionLifecycle.REVALIDATION_FAILED,
+    (DecisionLifecycle.APPROVED,          "revalidation_fail"):  DecisionLifecycle.REVALIDATION_FAILED,
+    (DecisionLifecycle.EVALUATED,         "integrity_fail"):     DecisionLifecycle.INTEGRITY_FAILED,
+    (DecisionLifecycle.APPROVED,          "integrity_fail"):     DecisionLifecycle.INTEGRITY_FAILED,
+    (DecisionLifecycle.EXECUTING,         "integrity_fail"):     DecisionLifecycle.INTEGRITY_FAILED,
 }
