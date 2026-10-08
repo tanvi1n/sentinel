@@ -19,8 +19,16 @@ Routes:
   GET    /health                     — health check
   POST   /reset                      — reset demo state
 
-All business logic is in the service layer.
-Routes are thin wrappers only.
+All routes are also accessible under the /api/ prefix:
+  GET    /api/scenarios
+  POST   /api/demo/start
+  POST   /api/demo/{run_id}/step
+  POST   /api/demo/{run_id}/execute
+  POST   /api/admin/review
+  POST   /api/admin/undo
+  POST   /api/admin/reset
+  POST   /api/admin/semantic-mode
+  POST   /api/admin/policy-override
 
 Owned by: Person 2
 """
@@ -35,6 +43,7 @@ from app.api.routes.review import router as review_router
 from app.api.routes.execute import router as execute_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.admin import router as admin_router
+from app.api.routes.demo import router as demo_router
 
 app = FastAPI(
     title="SENTINEL Guardrail API",
@@ -54,9 +63,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routes
+# Register base routes
 app.include_router(evaluate_router, tags=["Evaluate"])
 app.include_router(review_router, tags=["Review"])
 app.include_router(execute_router, tags=["Execute"])
 app.include_router(audit_router, tags=["Audit"])
 app.include_router(admin_router, tags=["Admin"])
+app.include_router(demo_router, tags=["Demo"])
+
+# Register /api prefixed aliases for evaluate, review, execute, audit
+app.include_router(evaluate_router, prefix="/api", tags=["Evaluate (API)"])
+app.include_router(review_router, prefix="/api", tags=["Review (API)"])
+app.include_router(execute_router, prefix="/api", tags=["Execute (API)"])
+app.include_router(audit_router, prefix="/api", tags=["Audit (API)"])

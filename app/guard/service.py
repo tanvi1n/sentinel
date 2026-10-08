@@ -113,12 +113,35 @@ class GuardService:
         proposal: ActionProposal,
         semantic_result: SemanticResult | None = None,
         session_id: str | None = None,
+        harness_provenance: dict[str, str] | None = None,
     ) -> GuardDecision:
         """
         Evaluate a proposal and store the resulting decision.
 
+        Parameters:
+          proposal           : agent's ActionProposal (untrusted)
+          semantic_result    : optional result from Person 1's semantic layer
+          session_id         : optional session ID for session-scoped rules
+          harness_provenance : TRUSTED provenance map supplied by the harness.
+                               Maps argument name → ProvenanceLabel string.
+                               MUST NOT come from the agent — only the trusted
+                               harness may supply this.
+
+        The harness_provenance is injected into the proposal before evaluation.
+        This is the correct trust boundary: the agent submits a raw proposal,
+        the harness annotates which argument values came from which source
+        (user_task, external_content, system, agent_internal).
+
         Returns the stored GuardDecision.
         """
+        # Inject trusted harness provenance into the proposal if provided.
+        # This replaces any agent-supplied arg_provenance (which should be empty).
+        if harness_provenance:
+            # model_copy preserves all other fields
+            proposal = proposal.model_copy(
+                update={"arg_provenance": harness_provenance}
+            )
+
         session_ctx = self._get_or_create_session(
             session_id or proposal.context.session_id
         )
@@ -193,10 +216,15 @@ class GuardService:
         """
         Approve a REVIEW decision (human reviewer action).
 
+        Human approval is ONLY valid when decision.outcome == REVIEW.
+
+        APPROVE decisions proceed directly to execution without human approval.
+        BLOCK decisions can never be approved.
+
         Raises:
           DecisionNotFound          : decision doesn't exist
           BlockedDecision           : cannot approve a BLOCK
-          InvalidLifecycleTransition: not in a reviewable state
+          InvalidLifecycleTransition: not in a reviewable state, or outcome != REVIEW
         """
         decision = self._store.get(decision_id)
 
@@ -206,13 +234,22 @@ class GuardService:
                 f"Decision '{decision_id}' is BLOCKED and cannot be approved."
             )
 
+        # Hard rule: only REVIEW outcomes require and accept human approval.
+        # APPROVE decisions execute directly — they must not be "approved" manually.
+        if decision.outcome != DecisionOutcome.REVIEW:
+            raise InvalidLifecycleTransition(
+                f"Decision '{decision_id}' has outcome '{decision.outcome.value}' "
+                f"and does not require human approval. "
+                f"Only REVIEW decisions can be approved."
+            )
+
         if decision.lifecycle not in (
             DecisionLifecycle.PENDING_REVIEW,
             DecisionLifecycle.EVALUATED,
         ):
             raise InvalidLifecycleTransition(
-                f"Decision '{decision_id}' is in state '{decision.lifecycle.value}' "
-                f"and cannot be approved."
+                f"Decision '{decision_id}' is in lifecycle state "
+                f"'{decision.lifecycle.value}' and cannot be approved."
             )
 
         updated = self._store.update_lifecycle(

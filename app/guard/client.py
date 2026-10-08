@@ -59,31 +59,50 @@ class GuardClient:
         proposal: ActionProposal,
         semantic_result: SemanticResult | None = None,
         session_id: str | None = None,
+        harness_provenance: dict[str, str] | None = None,
     ) -> GuardDecision:
         """
         Evaluate an ActionProposal.
 
         Parameters:
-          proposal        : the agent's proposed action (untrusted)
-          semantic_result : optional result from semantic provider
-          session_id      : optional session identifier for session-scoped rules
+          proposal           : the agent's proposed action (untrusted)
+          semantic_result    : optional result from semantic provider
+          session_id         : optional session identifier for session-scoped rules
+          harness_provenance : TRUSTED provenance annotations from the harness.
+                               Maps argument name → ProvenanceLabel string, e.g.:
+                                 {"recipient": "external_content",
+                                  "amount": "external_content"}
+                               This MUST be supplied by the trusted harness,
+                               never by the agent. The HTTP API does not accept
+                               this field — only this Python interface does.
+
+        TRUST BOUNDARY:
+          The agent submits only:  agent_id, tool, arguments, context
+          The harness annotates:   harness_provenance, semantic_result
+          Sentinel decides:        everything else
 
         Returns:
           GuardDecision with outcome APPROVE | REVIEW | BLOCK
 
-        The proposal is validated, canonicalized, and evaluated against
-        deterministic rules + semantic advisory. The result is stored.
-
-        Example:
+        Example (Scenario 4 — prompt injection):
             proposal = ActionProposal(
                 agent_id="demo-agent",
                 tool="payment_transfer",
-                arguments={"amount": 50000, "recipient": "bob"},
+                arguments={"amount": 100000, "recipient": "attacker"},
             )
-            decision = client.evaluate(proposal)
-            print(decision.outcome)  # → BLOCK
+            # Harness knows the agent read external content and used it here:
+            decision = client.evaluate(
+                proposal,
+                harness_provenance={
+                    "amount": "external_content",
+                    "recipient": "external_content",
+                }
+            )
+            assert decision.outcome == "BLOCK"  # PAYMENT_EXTERNAL_PROVENANCE fires
         """
-        return self._service.evaluate(proposal, semantic_result, session_id)
+        return self._service.evaluate(
+            proposal, semantic_result, session_id, harness_provenance
+        )
 
     def approve(
         self,

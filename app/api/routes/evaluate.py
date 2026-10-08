@@ -30,11 +30,27 @@ router = APIRouter()
 
 
 class EvaluateRequest(BaseModel):
-    """Request body for POST /evaluate."""
+    """
+    Request body for POST /evaluate.
+
+    TRUST BOUNDARY NOTE:
+    - agent_id, tool, arguments are agent-supplied (untrusted)
+    - context is harness-supplied trusted context
+    - semantic_result is supplied by Person 1's trusted harness after LLM call
+    - arg_provenance is NOT accepted here — it must come from the trusted
+      harness via the GuardClient.evaluate() Python interface directly.
+      Accepting provenance over the HTTP boundary would let any caller
+      fabricate trusted provenance labels.
+
+    Person 1 harness integration:
+      Use GuardClient.evaluate(proposal, semantic_result, harness_provenance=...)
+      to supply trusted provenance directly in Python without going through HTTP.
+    """
     agent_id: str
     tool: str
     arguments: dict[str, Any] = {}
-    arg_provenance: dict[str, str] = {}
+    # NOTE: arg_provenance is intentionally absent — agent cannot supply it.
+    # The harness supplies provenance via GuardClient.evaluate(harness_provenance=...)
     context: ProposalContext = ProposalContext()
     semantic_result: SemanticResult | None = None
     session_id: str | None = None
@@ -48,16 +64,20 @@ def evaluate(request: EvaluateRequest) -> GuardDecision:
     Evaluate an action proposal.
 
     Returns a GuardDecision with outcome APPROVE | REVIEW | BLOCK.
+
+    arg_provenance cannot be supplied via this HTTP endpoint (trust boundary).
+    Use GuardClient.evaluate() directly from the trusted harness to supply
+    provenance for Scenario 4 (prompt injection detection).
     """
     service = get_guard_service()
 
-    # Build ActionProposal from request fields
+    # Build ActionProposal — no arg_provenance from the agent
     try:
         proposal = ActionProposal(
             agent_id=request.agent_id,
             tool=request.tool,
             arguments=request.arguments,
-            arg_provenance=request.arg_provenance,
+            # arg_provenance left empty — harness must supply via GuardClient
             context=request.context,
         )
     except Exception as exc:
@@ -68,6 +88,7 @@ def evaluate(request: EvaluateRequest) -> GuardDecision:
             proposal,
             semantic_result=request.semantic_result,
             session_id=request.session_id or request.context.session_id,
+            # harness_provenance=None here — HTTP callers cannot supply it
         )
     except (InvalidProposal, UnknownTool, UnknownArgument, InvalidArgument,
             OversizedValue, PathTraversalError) as exc:

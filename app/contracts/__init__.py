@@ -37,6 +37,7 @@ from app.contracts.errors import (
 )
 from app.contracts.proposal import ActionProposal, ProposalContext, ProvenanceLabel
 from app.contracts.semantic import SemanticOutcome, SemanticResult
+from app.world.tools.base import ExecutionResult
 
 __all__ = [
     # proposal
@@ -47,6 +48,7 @@ __all__ = [
     "CanonicalAction",
     "DecisionLifecycle",
     "DecisionOutcome",
+    "ExecutionResult",
     "GuardDecision",
     "VALID_TRANSITIONS",
     "Violation",

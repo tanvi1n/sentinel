@@ -96,8 +96,41 @@ class ExecutionGateway:
           RevalidationFailed      : action is no longer safe
           ToolExecutionError      : tool raised an error
         """
-        # --- Step 1: Check decision state (handles integrity internally) ---
-        decision = self._store.assert_executable(decision_id)
+        # --- Step 1: Check decision state and integrity ----------------------
+        # assert_executable() raises IntegrityError if the canonical action
+        # has been tampered with. We catch it here to record the audit event
+        # before re-raising — critical for security accountability.
+        try:
+            decision = self._store.assert_executable(decision_id)
+        except IntegrityError as exc:
+            # Try to get whatever we can from the store for the audit entry
+            try:
+                raw = self._store.get(decision_id)
+                _agent_id = raw.canonical_action.agent_id
+                _tool = raw.canonical_action.tool
+                _outcome = raw.outcome.value
+                _lifecycle = raw.lifecycle.value
+            except Exception:
+                _agent_id = _tool = _outcome = _lifecycle = None
+
+            self._audit.record(
+                AuditEvent.INTEGRITY_FAILED,
+                decision_id=decision_id,
+                agent_id=_agent_id,
+                tool=_tool,
+                outcome=_outcome,
+                lifecycle=DecisionLifecycle.INTEGRITY_FAILED.value,
+                message=f"Integrity check FAILED — stored action was tampered: {exc}",
+                metadata={"error": str(exc)},
+            )
+            # Update lifecycle to INTEGRITY_FAILED if possible
+            try:
+                self._store.update_lifecycle(
+                    decision_id, DecisionLifecycle.INTEGRITY_FAILED
+                )
+            except Exception:
+                pass  # best-effort — don't mask the original error
+            raise
 
         # --- Step 2: Execution-time revalidation (deterministic, no semantic) ---
         start_time = time.monotonic()
@@ -210,6 +243,11 @@ class ExecutionGateway:
         """
         decision = self._store.get(decision_id)
         canonical = decision.canonical_action
+
+        if decision.lifecycle == DecisionLifecycle.UNDONE:
+            raise AlreadyUndone(
+                f"Decision '{decision_id}' has already been undone."
+            )
 
         if decision.lifecycle != DecisionLifecycle.EXECUTED:
             raise UndoUnavailable(
