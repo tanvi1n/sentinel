@@ -1,0 +1,243 @@
+# config/policies.yaml
+# ====================
+# Deterministic policy rules for SENTINEL.
+#
+# These rules are authoritative. Semantic results are advisory.
+# A BLOCK from policy rules cannot be overridden by semantic findings.
+#
+# Structure:
+#   - agent_capabilities: what each agent_id is allowed to do
+#   - risk_thresholds: risk score → decision outcome mapping
+#   - rules: named deterministic rules with conditions
+#   - limits: domain-specific limits (e.g. payment thresholds)
+
+
+# ---------------------------------------------------------------------------
+# Agent capability grants
+# ---------------------------------------------------------------------------
+# Maps agent_id → list of granted capabilities.
+# If a tool requires a capability not in this list, the action is BLOCKED.
+# Default (catch-all) entries use wildcard "*".
+
+agent_capabilities:
+  # Demo agent used in tests and scenarios
+  demo-agent:
+    - calendar.read
+    - email.read
+    - email.send
+    - web.fetch
+    - file.delete
+    - payment.transfer
+
+  # Read-only agent: only reads, no mutations
+  readonly-agent:
+    - calendar.read
+    - email.read
+    - web.fetch
+
+  # Restricted agent: no payment, no delete
+  restricted-agent:
+    - calendar.read
+    - email.read
+    - email.send
+    - web.fetch
+
+  # Privileged agent: all capabilities
+  privileged-agent:
+    - calendar.read
+    - email.read
+    - email.send
+    - web.fetch
+    - file.delete
+    - payment.transfer
+
+  # Catch-all default for unknown agents (minimal capabilities)
+  __default__:
+    - calendar.read
+
+
+# ---------------------------------------------------------------------------
+# Risk thresholds → decision outcome
+# ---------------------------------------------------------------------------
+# risk_score >= threshold → outcome
+# Rules are evaluated in order; first match wins.
+
+risk_thresholds:
+  - threshold: 0.85
+    outcome: BLOCK
+    label: CRITICAL
+  - threshold: 0.65
+    outcome: REVIEW
+    label: HIGH
+  - threshold: 0.40
+    outcome: REVIEW
+    label: MEDIUM
+  - threshold: 0.0
+    outcome: APPROVE
+    label: LOW
+
+
+# ---------------------------------------------------------------------------
+# Deterministic rules
+# ---------------------------------------------------------------------------
+# Each rule has:
+#   id        : unique rule identifier
+#   enabled   : whether this rule is active
+#   outcome   : BLOCK | REVIEW | APPROVE (the outcome if this rule fires)
+#   severity  : CRITICAL | HIGH | MEDIUM | LOW
+#   message   : human-readable description
+#   condition : description of when this rule fires (enforced in rules.py)
+
+rules:
+
+  # --- Authorization rules -------------------------------------------------
+
+  - id: UNAUTHORIZED_CAPABILITY
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Agent does not have the required capability for this tool."
+    condition: "agent's granted capabilities do not include tool.capability"
+
+  - id: UNKNOWN_TOOL
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Requested tool is not registered in the tool registry."
+    condition: "tool not in registry"
+
+  # --- High-impact / irreversible rules ------------------------------------
+
+  - id: IRREVERSIBLE_HIGH_IMPACT
+    enabled: true
+    outcome: REVIEW
+    severity: HIGH
+    message: "Action is irreversible and high-impact; requires human review."
+    condition: "tool.high_impact == true AND tool.reversible == false"
+
+  - id: LARGE_PAYMENT
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Payment amount exceeds the configured block threshold."
+    condition: "tool == payment_transfer AND amount > limits.payment.block_threshold"
+
+  - id: PAYMENT_REVIEW
+    enabled: true
+    outcome: REVIEW
+    severity: HIGH
+    message: "Payment amount exceeds the review threshold."
+    condition: "tool == payment_transfer AND amount > limits.payment.review_threshold"
+
+  - id: BULK_FILE_DELETE
+    enabled: true
+    outcome: REVIEW
+    severity: HIGH
+    message: "Bulk file deletion requires human review."
+    condition: "tool == file_delete AND arguments.permanent == true"
+
+  - id: PERMANENT_DELETE
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Permanent (hard) file deletion is blocked by policy."
+    condition: "tool == file_delete AND arguments.permanent == true AND limits.file_delete.allow_permanent == false"
+
+  # --- Provenance / prompt-injection rules ---------------------------------
+
+  - id: EXTERNAL_CONTENT_MUTATION
+    enabled: true
+    outcome: REVIEW
+    severity: HIGH
+    message: "Mutating action arguments appear to originate from external (untrusted) content."
+    condition: "tool.mutating == true AND any argument provenance == external_content"
+
+  - id: PAYMENT_EXTERNAL_PROVENANCE
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Payment transfer requested with recipient or amount from external (untrusted) content."
+    condition: "tool == payment_transfer AND (recipient or amount provenance == external_content)"
+
+  # --- Session / flow rules ------------------------------------------------
+
+  - id: SEND_AFTER_PRIVATE_READ
+    enabled: true
+    outcome: REVIEW
+    severity: HIGH
+    message: "Email send follows an email read in the same session; possible data exfiltration."
+    condition: "tool == email_send AND session has prior executed email_read"
+
+  # --- Semantic check required ---------------------------------------------
+
+  - id: SEMANTIC_REQUIRED_UNAVAILABLE
+    enabled: true
+    outcome: REVIEW
+    severity: MEDIUM
+    message: "Semantic check is required for this tool but the semantic provider is unavailable."
+    condition: "tool.requires_semantic == true AND semantic_result.outcome in [INVALID, TIMEOUT, UNAVAILABLE]"
+
+  # --- Path traversal ------------------------------------------------------
+
+  - id: PATH_TRAVERSAL
+    enabled: true
+    outcome: BLOCK
+    severity: CRITICAL
+    message: "Argument contains a path traversal pattern (../)."
+    condition: "any string argument contains '../' or '..\\\\'"
+
+
+# ---------------------------------------------------------------------------
+# Domain-specific limits
+# ---------------------------------------------------------------------------
+
+limits:
+  payment:
+    block_threshold: 25000     # INR — amounts above this are hard-blocked
+    review_threshold: 5000     # INR — amounts above this require review
+    currency_default: INR
+
+  file_delete:
+    allow_permanent: false     # hard-delete is blocked by default
+
+  email:
+    max_recipients: 20         # max TO+CC recipients
+
+  web_fetch:
+    max_url_length: 2048
+
+
+# ---------------------------------------------------------------------------
+# Semantic escalation rules
+# ---------------------------------------------------------------------------
+# These control how semantic results affect the combine() outcome.
+# They do NOT override deterministic BLOCKs.
+
+semantic_escalation:
+  # SUSPICIOUS from semantic escalates APPROVE → REVIEW
+  SUSPICIOUS:
+    can_escalate_approve_to_review: true
+    can_override_block: false
+
+  # UNSAFE from semantic escalates APPROVE → REVIEW
+  UNSAFE:
+    can_escalate_approve_to_review: true
+    can_override_block: false
+
+  # SAFE: no escalation
+  SAFE:
+    can_escalate_approve_to_review: false
+    can_override_block: false
+
+  # Error states when semantic is required: escalate APPROVE → REVIEW
+  INVALID:
+    can_escalate_approve_to_review: true
+    can_override_block: false
+
+  TIMEOUT:
+    can_escalate_approve_to_review: true
+    can_override_block: false
+
+  UNAVAILABLE:
+    can_escalate_approve_to_review: true
+    can_override_block: false

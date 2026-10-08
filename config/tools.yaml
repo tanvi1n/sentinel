@@ -1,0 +1,182 @@
+# config/tools.yaml
+# =================
+# Tool registry for SENTINEL.
+#
+# Each entry describes a tool available to agents.
+# The guardrail engine uses this as the single source of truth for:
+#   - what tools exist
+#   - what arguments they accept (with types and constraints)
+#   - what capability is required
+#   - whether the action is read-only or mutating
+#   - reversibility
+#   - risk characteristics
+#   - whether semantic checking is required
+#   - whether undo is supported
+#   - whether the tool is high-impact
+#
+# The core engine MUST NOT hardcode tool-specific behavior.
+# All domain-specific behavior must be derived from this configuration.
+
+tools:
+
+  - id: calendar_read
+    description: "Read calendar events for a given date range."
+    capability: calendar.read
+    mutating: false
+    read_only: true
+    reversible: true          # reads are trivially reversible (no-op undo)
+    undo_supported: false     # nothing to undo for reads
+    high_impact: false
+    requires_semantic: false
+    base_risk: 0.1
+    arguments:
+      start_date:
+        type: string
+        required: false
+        max_length: 32
+        description: "ISO 8601 start date (YYYY-MM-DD)"
+      end_date:
+        type: string
+        required: false
+        max_length: 32
+        description: "ISO 8601 end date (YYYY-MM-DD)"
+      calendar_id:
+        type: string
+        required: false
+        max_length: 128
+        description: "Calendar identifier (default: primary)"
+
+  - id: email_read
+    description: "Read emails from the inbox."
+    capability: email.read
+    mutating: false
+    read_only: true
+    reversible: true          # reads are trivially reversible
+    undo_supported: false
+    high_impact: false
+    requires_semantic: true   # private data — semantic check required
+    base_risk: 0.2
+    arguments:
+      query:
+        type: string
+        required: false
+        max_length: 256
+        description: "Search query for filtering emails."
+      limit:
+        type: integer
+        required: false
+        min_value: 1
+        max_value: 100
+        description: "Maximum number of emails to return."
+      folder:
+        type: string
+        required: false
+        max_length: 64
+        description: "Folder to read from (default: inbox)."
+
+  - id: email_send
+    description: "Send an email to one or more recipients."
+    capability: email.send
+    mutating: true
+    read_only: false
+    reversible: false         # once sent, cannot be recalled
+    undo_supported: false
+    high_impact: false
+    requires_semantic: true   # content must be checked
+    base_risk: 0.5
+    arguments:
+      to:
+        type: string
+        required: true
+        max_length: 512
+        description: "Recipient email address(es), comma-separated."
+      subject:
+        type: string
+        required: true
+        max_length: 256
+        description: "Email subject line."
+      body:
+        type: string
+        required: true
+        max_length: 8192
+        description: "Email body text."
+      cc:
+        type: string
+        required: false
+        max_length: 512
+        description: "CC recipients, comma-separated."
+
+  - id: web_fetch
+    description: "Fetch the content of a web page."
+    capability: web.fetch
+    mutating: false
+    read_only: true
+    reversible: true
+    undo_supported: false
+    high_impact: false
+    requires_semantic: true   # external content is untrusted
+    base_risk: 0.3
+    arguments:
+      url:
+        type: string
+        required: true
+        max_length: 2048
+        description: "The URL to fetch."
+      extract_text:
+        type: boolean
+        required: false
+        description: "Whether to extract plain text from HTML (default: true)."
+
+  - id: file_delete
+    description: "Delete a file from the file system."
+    capability: file.delete
+    mutating: true
+    read_only: false
+    reversible: true          # undo restores the file
+    undo_supported: true
+    high_impact: true
+    requires_semantic: true
+    base_risk: 0.45           # high-impact but reversible; modifiers bring it to REVIEW range
+    arguments:
+      path:
+        type: string
+        required: true
+        max_length: 512
+        description: "Path to the file to delete."
+        # path_traversal_check: true  (enforced in intake.py)
+      permanent:
+        type: boolean
+        required: false
+        description: "If true, bypass recycle bin / hard delete (default: false)."
+
+  - id: payment_transfer
+    description: "Transfer funds between accounts."
+    capability: payment.transfer
+    mutating: true
+    read_only: false
+    reversible: false         # financial transfers are not automatically reversible
+    undo_supported: false
+    high_impact: true
+    requires_semantic: true
+    base_risk: 0.30           # low base; PAYMENT_REVIEW and LARGE_PAYMENT rules drive decisions
+    arguments:
+      amount:
+        type: number
+        required: true
+        min_value: 0.01
+        description: "Amount to transfer (in account currency)."
+      recipient:
+        type: string
+        required: true
+        max_length: 256
+        description: "Recipient account identifier or name."
+      currency:
+        type: string
+        required: false
+        max_length: 8
+        description: "Currency code (default: INR)."
+      note:
+        type: string
+        required: false
+        max_length: 256
+        description: "Optional transfer note/memo."
