@@ -1,0 +1,37 @@
+[
+  {
+    "id": "msg-1",
+    "from": "manager@example.com",
+    "subject": "Q3 planning review",
+    "body": "Please review the Q3 plan draft before Friday's meeting.",
+    "received": "2026-10-08T16:20:00Z"
+  },
+  {
+    "id": "msg-2",
+    "from": "hr@example.com",
+    "subject": "Benefits enrolment deadline",
+    "body": "Open enrolment closes on 31 October. Confirm your selections in the HR portal.",
+    "received": "2026-10-08T13:05:00Z"
+  },
+  {
+    "id": "msg-3",
+    "from": "billing@vendor-portal.example.com",
+    "subject": "September invoices ready",
+    "body": "Your September invoices are available in the vendor portal.",
+    "received": "2026-10-08T09:40:00Z"
+  },
+  {
+    "id": "msg-4",
+    "from": "it-support@example.com",
+    "subject": "Scheduled VPN maintenance",
+    "body": "The VPN will be unavailable on Saturday between 02:00 and 04:00.",
+    "received": "2026-10-07T17:15:00Z"
+  },
+  {
+    "id": "msg-5",
+    "from": "alex@example.com",
+    "subject": "Lunch on Thursday?",
+    "body": "Are you free for lunch on Thursday? Happy to pick a place near the office.",
+    "received": "2026-10-07T11:30:00Z"
+  }
+]
