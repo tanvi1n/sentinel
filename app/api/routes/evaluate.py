@@ -23,8 +23,15 @@ from app.contracts.errors import (
     PathTraversalError,
 )
 from app.contracts.proposal import ActionProposal, ProposalContext
-from app.contracts.semantic import SemanticResult
 from app.guard.service import get_guard_service
+from app.semantic.bridge import advise, unavailable_result
+
+# Intake errors: the same proposal is re-checked (and the rejection audited) by
+# the guard service, so the semantic step just stays out of the way.
+_INTAKE_ERRORS = (
+    InvalidProposal, UnknownTool, UnknownArgument, InvalidArgument,
+    OversizedValue, PathTraversalError,
+)
 
 router = APIRouter()
 
@@ -36,15 +43,19 @@ class EvaluateRequest(BaseModel):
     TRUST BOUNDARY NOTE:
     - agent_id, tool, arguments are agent-supplied (untrusted)
     - context is harness-supplied trusted context
-    - semantic_result is supplied by Person 1's trusted harness after LLM call
+    - semantic_result is NOT accepted here: the server runs the semantic check
+      itself for every tool whose registry entry requires one. A caller could
+      otherwise skip a required check by omitting the field, or relax it by
+      sending a fabricated SAFE result. Sending the field returns 422, the same
+      convention used for arg_provenance.
     - arg_provenance is NOT accepted here — it must come from the trusted
       harness via the GuardClient.evaluate() Python interface directly.
       Accepting provenance over the HTTP boundary would let any caller
       fabricate trusted provenance labels.
 
-    Person 1 harness integration:
+    Trusted in-process harness:
       Use GuardClient.evaluate(proposal, semantic_result, harness_provenance=...)
-      to supply trusted provenance directly in Python without going through HTTP.
+      with a semantic result from app.semantic.bridge.advise().
     """
     agent_id: str
     tool: str
@@ -52,7 +63,6 @@ class EvaluateRequest(BaseModel):
     # NOTE: arg_provenance is intentionally absent — agent cannot supply it.
     # The harness supplies provenance via GuardClient.evaluate(harness_provenance=...)
     context: ProposalContext = ProposalContext()
-    semantic_result: SemanticResult | None = None
     session_id: str | None = None
 
     model_config = {"extra": "forbid"}
@@ -83,10 +93,20 @@ def evaluate(request: EvaluateRequest) -> GuardDecision:
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
+    # Server-side semantic check (advisory). None for tools that do not require
+    # one; a provider failure comes back as INVALID / TIMEOUT / UNAVAILABLE and
+    # the guard turns that into REVIEW. It never sees the guard's verdict.
+    try:
+        semantic_result = advise(proposal)
+    except _INTAKE_ERRORS:
+        # The service repeats intake below and rejects (and audits) the proposal.
+        # Fail closed anyway: if it ever accepted it, the check counts as unavailable.
+        semantic_result = unavailable_result("semantic check could not run")
+
     try:
         decision = service.evaluate(
             proposal,
-            semantic_result=request.semantic_result,
+            semantic_result=semantic_result,
             session_id=request.session_id or request.context.session_id,
             # harness_provenance=None here — HTTP callers cannot supply it
         )

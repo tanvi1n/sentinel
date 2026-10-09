@@ -27,6 +27,21 @@ from app.world.state import WorldStore, reset_world_store
 
 
 # ---------------------------------------------------------------------------
+# Hermetic semantic layer: every test starts in mock mode with no key and an
+# empty replay path, whatever the developer's shell or .env says. Tests that
+# need another mode set it themselves.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_semantic_factory(monkeypatch, tmp_path):
+    from app.semantic import factory
+
+    env = {"SENTINEL_REPLAY_PATH": str(tmp_path / "replay-none.jsonl")}
+    monkeypatch.setattr(factory, "_default", factory.SemanticFactory(env))
+
+
+# ---------------------------------------------------------------------------
 # Core fixtures — fresh isolated instances per test
 # ---------------------------------------------------------------------------
 

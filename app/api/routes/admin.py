@@ -33,6 +33,7 @@ from app.contracts.errors import (
 )
 from app.guard.registry import get_registry
 from app.guard.service import get_guard_service
+from app.semantic import factory as semantic_factory
 
 router = APIRouter()
 
@@ -71,8 +72,15 @@ class PolicyOverrideRequest(BaseModel):
 @router.get("/health")
 @router.get("/api/health")
 def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "ok", "service": "sentinel"}
+    """Health check endpoint (reports semantic mode; never any key)."""
+    sem = semantic_factory.describe()
+    return {
+        "status": "ok",
+        "service": "sentinel",
+        "semantic_mode": sem["mode"],
+        "semantic_provider": sem["provider"],
+        "semantic_key_configured": "yes" if sem["key_configured"] else "no",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +217,7 @@ def set_semantic_mode(request: SemanticModeRequest) -> dict[str, str]:
             status_code=400,
             detail=f"Invalid mode '{request.mode}'. Must be one of {sorted(valid_modes)}.",
         )
+    semantic_factory.set_mode(mode)  # the provider factory is the source of truth
     _semantic_mode = mode
     return {"status": "ok", "mode": _semantic_mode}
 
@@ -217,7 +226,7 @@ def set_semantic_mode(request: SemanticModeRequest) -> dict[str, str]:
 @router.get("/api/admin/semantic-mode")
 def get_semantic_mode() -> dict[str, str]:
     """Get the active semantic reasoning mode."""
-    return {"status": "ok", "mode": _semantic_mode}
+    return {"status": "ok", "mode": semantic_factory.describe()["mode"]}
 
 
 # ---------------------------------------------------------------------------

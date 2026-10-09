@@ -233,16 +233,19 @@ def test_semantic_failure_escalates_to_review_for_required_tool(
     fresh_service, failure_outcome
 ):
     """
-    For a tool with requires_semantic=True (email_send, email_read, file_delete),
-    semantic failures (TIMEOUT, INVALID, UNAVAILABLE) must trigger REVIEW.
+    For a tool with requires_semantic=True (email_send, file_delete,
+    payment_transfer), semantic failures (TIMEOUT, INVALID, UNAVAILABLE) must
+    trigger REVIEW.
     """
     client = GuardClient(fresh_service)
-    # email_read has requires_semantic: true
+    # payment_transfer has requires_semantic: true, and a small amount is
+    # APPROVE on the rules alone, so the failure itself must cause the REVIEW.
     proposal = ActionProposal(
         agent_id="demo-agent",
-        tool="email_read",
-        arguments={},
+        tool="payment_transfer",
+        arguments={"amount": 500.0, "recipient": "bob"},
     )
+    assert client.evaluate(proposal).outcome == DecisionOutcome.APPROVE
     sem_failure = SemanticResult(
         outcome=failure_outcome,
         reason="Provider error",

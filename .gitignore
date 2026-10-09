@@ -10,3 +10,17 @@ build/
 *.log
 audit_log.jsonl
 .env
+
+# Local reference documents
+/reference/
+
+# Local logs and editor settings
+logs/
+.vscode/
+.idea/
+
+# Semantic replay: recordings are local by default (replay/cache.jsonl and any
+# other *.jsonl). Only replay/demo.jsonl, a reviewed copy of real LIVE answers
+# to the scenario inputs, may be committed. See replay/README.md.
+replay/*.jsonl
+!replay/demo.jsonl

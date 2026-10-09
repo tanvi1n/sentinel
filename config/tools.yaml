@@ -54,7 +54,8 @@ tools:
     reversible: true          # reads are trivially reversible
     undo_supported: false
     high_impact: false
-    requires_semantic: true   # private data — semantic check required
+    requires_semantic: false  # blueprint: semantic check "never" for reads; the
+                              # session-flow rule guards private data after a read
     base_risk: 0.2
     arguments:
       query:
@@ -114,7 +115,9 @@ tools:
     reversible: true
     undo_supported: false
     high_impact: false
-    requires_semantic: true   # external content is untrusted
+    requires_semantic: false  # blueprint: "never" for reads; the fetched text is
+                              # recorded as untrusted observed content and checked
+                              # when a later action uses it
     base_risk: 0.3
     arguments:
       url:
