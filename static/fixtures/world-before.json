@@ -1,0 +1,22 @@
+{
+  "emails_in_inbox": 3,
+  "emails_sent": 0,
+  "calendar_events": 3,
+  "files": 10,
+  "file_paths": [
+    "/home/user/code/project/main.py",
+    "/home/user/code/project/tests.py",
+    "/home/user/code/project/utils.py",
+    "/home/user/documents/contracts/nda.pdf",
+    "/home/user/documents/contracts/sow.pdf",
+    "/home/user/documents/report_q4.pdf",
+    "/home/user/downloads/invoice_oct.pdf",
+    "/home/user/downloads/setup.exe",
+    "/home/user/photos/team_photo.jpg",
+    "/home/user/photos/vacation_2026.jpg"
+  ],
+  "payment_accounts": {
+    "primary": { "balance": 250000.0, "currency": "INR" },
+    "savings": { "balance": 500000.0, "currency": "INR" }
+  }
+}

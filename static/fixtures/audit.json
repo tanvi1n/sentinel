@@ -1,0 +1,83 @@
+[
+  {
+    "entry_id": "audit-fixture-006",
+    "event": "EVALUATED",
+    "decision_id": "dec-fixture-safe-001",
+    "agent_id": "demo-agent",
+    "tool": "calendar_read",
+    "outcome": "APPROVE",
+    "lifecycle": "EVALUATED",
+    "message": "Decision evaluated: APPROVE",
+    "metadata": { "risk_score": 0.10, "risk_label": "LOW" },
+    "timestamp": "2026-10-09T08:45:00.000Z",
+    "latency_ms": 8.4
+  },
+  {
+    "entry_id": "audit-fixture-005",
+    "event": "ACTION_PROPOSED",
+    "decision_id": "dec-fixture-safe-001",
+    "agent_id": "demo-agent",
+    "tool": "calendar_read",
+    "outcome": null,
+    "lifecycle": null,
+    "message": "Action proposed by agent",
+    "metadata": {},
+    "timestamp": "2026-10-09T08:45:00.000Z",
+    "latency_ms": null
+  },
+  {
+    "entry_id": "audit-fixture-004",
+    "event": "EXECUTED",
+    "decision_id": "dec-fixture-delete-001",
+    "agent_id": "demo-agent",
+    "tool": "file_delete",
+    "outcome": "REVIEW",
+    "lifecycle": "EXECUTED",
+    "message": "Action executed successfully after human approval",
+    "metadata": { "path": "/home/user/downloads/setup.exe" },
+    "timestamp": "2026-10-09T08:47:45.000Z",
+    "latency_ms": 12.1
+  },
+  {
+    "entry_id": "audit-fixture-003",
+    "event": "APPROVED",
+    "decision_id": "dec-fixture-delete-001",
+    "agent_id": "demo-agent",
+    "tool": "file_delete",
+    "outcome": "REVIEW",
+    "lifecycle": "APPROVED",
+    "message": "Decision approved by human-reviewer",
+    "metadata": { "reviewer_id": "human-reviewer" },
+    "timestamp": "2026-10-09T08:47:30.000Z",
+    "latency_ms": null
+  },
+  {
+    "entry_id": "audit-fixture-002",
+    "event": "REVIEW_REQUESTED",
+    "decision_id": "dec-fixture-delete-001",
+    "agent_id": "demo-agent",
+    "tool": "file_delete",
+    "outcome": "REVIEW",
+    "lifecycle": "PENDING_REVIEW",
+    "message": "Human review required: high-impact action",
+    "metadata": { "rules_fired": ["IRREVERSIBLE_HIGH_IMPACT"] },
+    "timestamp": "2026-10-09T08:47:00.000Z",
+    "latency_ms": 15.3
+  },
+  {
+    "entry_id": "audit-fixture-001",
+    "event": "BLOCKED",
+    "decision_id": "dec-fixture-inject-002",
+    "agent_id": "demo-agent",
+    "tool": "payment_transfer",
+    "outcome": "BLOCK",
+    "lifecycle": "BLOCKED",
+    "message": "Action blocked: PAYMENT_EXTERNAL_PROVENANCE, LARGE_PAYMENT",
+    "metadata": {
+      "rules_fired": ["PAYMENT_EXTERNAL_PROVENANCE", "LARGE_PAYMENT"],
+      "risk_score": 0.95
+    },
+    "timestamp": "2026-10-09T08:48:10.000Z",
+    "latency_ms": 11.7
+  }
+]

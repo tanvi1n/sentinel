@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel — Agentic AI Guardrail Validator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- =========================================================
+     TOP BAR
+     ========================================================= -->
+<header class="top-bar" role="banner">
+  <div class="top-bar__logo">
+    <span class="top-bar__logo-icon" aria-hidden="true">🛡</span>
+    <span>Sentinel</span>
+  </div>
+
+  <span id="fixture-badge" role="status" aria-live="polite">⚡ Fixture Mode</span>
+
+  <div class="top-bar__spacer"></div>
+
+  <div id="health-bar" role="status" aria-live="polite">
+    <div class="health-dot" aria-hidden="true"></div>
+    <div class="health-item">
+      <span class="health-item__label">Status:</span>
+      <span id="health-status">—</span>
+    </div>
+    <div class="health-item">
+      <span class="health-item__label">Semantic:</span>
+      <span id="health-mode">—</span>
+    </div>
+    <div class="health-item">
+      <span class="health-item__label">Provider:</span>
+      <span id="health-provider">—</span>
+    </div>
+    <div class="health-item">
+      <span class="health-item__label">Key:</span>
+      <span id="health-key">—</span>
+    </div>
+  </div>
+</header>
+
+<div id="status-bar" role="alert" aria-live="assertive"></div>
+
+<!-- =========================================================
+     THREE-COLUMN DASHBOARD
+     ========================================================= -->
+<main class="dashboard" role="main">
+
+  <!-- ======================================================
+       LEFT PANEL — Scenario & controls
+       ====================================================== -->
+  <section class="panel" aria-label="Scenario and agent proposal">
+    <div class="panel__header">
+      <span class="panel__header-icon" aria-hidden="true">🎬</span>
+      <span>Scenario</span>
+    </div>
+
+    <div class="panel__body">
+
+      <!-- Scenario selector -->
+      <div class="section sc-selector">
+        <label for="scenario-select" class="section__title">Select Scenario</label>
+        <select id="scenario-select" aria-label="Select a demo scenario">
+          <option value="">— Choose a scenario —</option>
+        </select>
+      </div>
+
+      <!-- Scenario metadata (hidden until selected) -->
+      <div class="section" id="sc-info-block" style="display:none">
+        <div class="sc-meta">
+          <strong id="sc-title">—</strong>
+          <span id="sc-description"></span>
+        </div>
+        <div>
+          <div class="section__title" style="margin-bottom:5px">User Task</div>
+          <div class="task-box" id="sc-user-task">—</div>
+        </div>
+        <div class="section__row">
+          <span class="section__label">Expected:</span>
+          <span class="section__value" id="sc-expected">—</span>
+        </div>
+      </div>
+
+      <!-- Proposed action (populated after step evaluation) -->
+      <div class="section" id="proposal-block" style="display:none">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+          <div class="section__title">Proposed Action</div>
+          <span class="step-pill" id="step-current"></span>
+        </div>
+        <div class="proposal-block">
+          <div class="proposal-tool" id="prop-tool">—</div>
+          <div class="section__row" style="margin-top:4px">
+            <span class="section__label">Agent:</span>
+            <code id="prop-agent">—</code>
+          </div>
+          <div class="proposal-args" id="prop-args" aria-label="Proposed arguments"></div>
+        </div>
+        <!-- legacy step-counter hidden, step-pill used instead -->
+        <span class="step-counter" id="step-current-legacy" aria-hidden="true"></span>
+      </div>
+
+      <!-- Controls -->
+      <div class="section controls">
+        <div class="section__title">Controls</div>
+
+        <button id="btn-run-step" class="btn btn-primary btn-full" type="button"
+                disabled aria-label="Run next scenario step">
+          ▶ Run Step
+        </button>
+
+        <!-- Review callout — shown only when REVIEW is pending -->
+        <div id="review-action-row" class="review-action-row" style="display:none"
+             role="region" aria-label="Review decision">
+          <p>⚠ Human review required — approve or reject before execution</p>
+          <button id="btn-approve" class="btn btn-approve" type="button"
+                  aria-label="Approve pending decision">✓ Approve</button>
+          <button id="btn-reject"  class="btn btn-reject"  type="button"
+                  aria-label="Reject pending decision">✗ Reject</button>
+        </div>
+
+        <!-- Execute — visible only when APPROVE or lifecycle APPROVED -->
+        <button id="btn-execute" class="btn btn-secondary btn-full" type="button"
+                style="display:none" aria-label="Execute approved action">
+          ⚡ Execute Action
+        </button>
+
+        <!-- Undo — visible only after execution of a reversible action -->
+        <button id="btn-undo" class="btn btn-warn btn-full" type="button"
+                style="display:none" aria-label="Undo executed action">
+          ↩ Undo
+        </button>
+
+        <hr class="divider" />
+
+        <button id="btn-reset" class="btn btn-danger btn-full" type="button"
+                aria-label="Reset all demo state">
+          ⟳ Reset Demo
+        </button>
+      </div>
+
+    </div>
+  </section><!-- /left panel -->
+
+
+  <!-- ======================================================
+       CENTRE PANEL — Decision
+       ====================================================== -->
+  <section class="panel" aria-label="Sentinel guardrail decision">
+    <div class="panel__header">
+      <span class="panel__header-icon" aria-hidden="true">🛡</span>
+      <span>Decision</span>
+    </div>
+
+    <div class="panel__body">
+
+      <!-- VERDICT — primary visual focus -->
+      <div class="verdict-section" id="verdict-section"
+           role="status" aria-live="polite" aria-atomic="true">
+        <span id="verdict-badge" class="verdict-badge verdict-unknown"
+              aria-label="Verdict">—</span>
+        <div class="verdict-meta">
+          <span id="decision-lifecycle" class="verdict-lifecycle">Awaiting evaluation</span>
+          <span id="decision-id" class="verdict-id" title="Decision ID">—</span>
+        </div>
+      </div>
+
+      <!-- Explanation (open by default — most important secondary content) -->
+      <div>
+        <button class="collapsible-toggle" aria-expanded="true"
+                aria-controls="explanation-body"
+                onclick="toggleCollapsible(this,'explanation-body')">
+          <span class="caret">▾</span> Explanation
+        </button>
+        <div id="explanation-body" class="collapsible-body" style="margin-top:6px">
+          <pre id="explanation-text" class="explanation-pre"
+               aria-label="Decision explanation">Run a scenario step to see the decision.</pre>
+        </div>
+      </div>
+
+      <hr class="centre-divider" />
+
+      <!-- Canonical action -->
+      <div>
+        <button class="collapsible-toggle" aria-expanded="true"
+                aria-controls="ca-body" onclick="toggleCollapsible(this,'ca-body')">
+          <span class="caret">▾</span> Canonical Action
+        </button>
+        <div id="ca-body" class="collapsible-body ca-block" style="margin-top:8px">
+          <div>
+            <code class="ca-tool-name" id="ca-tool">—</code>
+          </div>
+          <div class="section__row">
+            <span class="section__label">Agent:</span>
+            <code id="ca-agent">—</code>
+          </div>
+          <div class="section__row">
+            <span class="section__label">Reversible:</span>
+            <span id="decision-reversible" class="badge">—</span>
+          </div>
+          <pre class="ca-args-pre" id="ca-args" aria-label="Canonical arguments"></pre>
+          <div class="section__row">
+            <span class="section__label">Integrity:</span>
+            <code class="ca-hash-label" id="ca-hash">—</code>
+          </div>
+        </div>
+      </div>
+
+      <hr class="centre-divider" />
+
+      <!-- Four diagnostic axes -->
+      <div>
+        <div class="collapsible-toggle" style="pointer-events:none; margin-bottom:8px">
+          <span class="caret" style="color:transparent">▾</span>
+          <span style="color:var(--text-dim); font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em">Diagnostic Axes</span>
+        </div>
+        <div class="axes-grid" role="list" aria-label="Safety diagnostic axes">
+
+          <div class="axis-card" role="listitem" aria-label="Capability axis">
+            <div class="axis-card__title">⚙ Capability</div>
+            <div id="axis-capability"><span class="axis-placeholder">Not available</span></div>
+          </div>
+
+          <div class="axis-card" role="listitem" aria-label="Risk axis">
+            <div class="axis-card__title">📊 Risk</div>
+            <div id="axis-risk"><span class="axis-placeholder">Not available</span></div>
+          </div>
+
+          <div class="axis-card" role="listitem" aria-label="Provenance axis">
+            <div class="axis-card__title">🔍 Provenance</div>
+            <div id="axis-provenance"><span class="axis-placeholder">Not available</span></div>
+          </div>
+
+          <div class="axis-card" role="listitem" aria-label="Semantic axis">
+            <div class="axis-card__title">🤖 Semantic</div>
+            <div id="axis-semantic"><span class="axis-placeholder">Not available</span></div>
+          </div>
+
+        </div>
+      </div>
+
+      <hr class="centre-divider" />
+
+      <!-- Policy findings -->
+      <div>
+        <button class="collapsible-toggle" aria-expanded="true"
+                aria-controls="violations-body"
+                onclick="toggleCollapsible(this,'violations-body')">
+          <span class="caret">▾</span> Policy Findings
+        </button>
+        <div id="violations-body" class="collapsible-body" style="margin-top:8px">
+          <ul id="violations-list" class="violations-list" aria-label="Policy violations"></ul>
+          <p id="violations-empty" class="axis-placeholder" style="display:none">No violations found.</p>
+        </div>
+      </div>
+
+      <!-- Rules fired (inline, no collapsible needed — small) -->
+      <div>
+        <div class="section__title" style="margin-bottom:6px">Rules Fired</div>
+        <div id="rules-fired-list" class="rules-fired-list" aria-label="Rules that fired">
+          <span class="axis-placeholder">—</span>
+        </div>
+      </div>
+
+      <hr class="centre-divider" />
+
+      <!-- Timestamps (collapsed by default) -->
+      <div>
+        <button class="collapsible-toggle" aria-expanded="false"
+                aria-controls="ts-body" onclick="toggleCollapsible(this,'ts-body')">
+          <span class="caret">▸</span> Timestamps
+        </button>
+        <div id="ts-body" class="collapsible-body collapsed" style="margin-top:8px">
+          <div class="ts-grid">
+            <div class="ts-cell">
+              <span class="ts-label">Evaluated</span>
+              <span id="ts-evaluated">—</span>
+            </div>
+            <div class="ts-cell">
+              <span class="ts-label">Decided</span>
+              <span id="ts-decided">—</span>
+            </div>
+            <div class="ts-cell">
+              <span class="ts-label">Executed</span>
+              <span id="ts-executed">—</span>
+            </div>
+            <div class="ts-cell">
+              <span class="ts-label">Reviewer</span>
+              <span id="ts-reviewer">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution result (hidden until executed) -->
+      <div id="exec-result-section" style="display:none"
+           role="region" aria-label="Execution result">
+        <hr class="centre-divider" />
+        <div class="section__title" style="margin-bottom:6px">Execution Result</div>
+        <pre class="exec-result-pre" id="exec-result-body" aria-label="Execution output"></pre>
+      </div>
+
+    </div>
+  </section><!-- /centre panel -->
+
+
+  <!-- ======================================================
+       RIGHT PANEL — World / Review / Audit
+       ====================================================== -->
+  <section class="panel" aria-label="World state, review queue and audit history">
+    <div class="panel__header">
+      <span class="panel__header-icon" aria-hidden="true">📋</span>
+      <span>Context</span>
+    </div>
+
+    <div class="right-tabs" role="tablist" aria-label="Right panel sections">
+      <button class="right-tab active" id="tab-world"  role="tab"
+              aria-selected="true"  aria-controls="pane-world"
+              onclick="switchRightTab('world')">World</button>
+      <button class="right-tab"        id="tab-review" role="tab"
+              aria-selected="false" aria-controls="pane-review"
+              onclick="switchRightTab('review')">Review</button>
+      <button class="right-tab"        id="tab-audit"  role="tab"
+              aria-selected="false" aria-controls="pane-audit"
+              onclick="switchRightTab('audit')">Audit</button>
+    </div>
+
+    <!-- World state tab -->
+    <div id="pane-world" class="right-tab-pane active" role="tabpanel"
+         aria-labelledby="tab-world">
+
+      <div class="section">
+        <div class="section__title">World State — Before</div>
+        <div id="world-before">
+          <span class="world-placeholder">Start a scenario to see world state.</span>
+        </div>
+      </div>
+
+      <div class="section" id="world-after-section" style="display:none">
+        <div class="section__title">World State — After</div>
+        <div id="world-after">
+          <span class="world-placeholder">Execute a step to see changes.</span>
+        </div>
+      </div>
+
+      <div class="section" id="world-diff-section" style="display:none">
+        <div class="section__title">Summary Comparison</div>
+        <div id="world-diff" aria-label="World state comparison"></div>
+      </div>
+
+    </div>
+
+    <!-- Review queue tab -->
+    <div id="pane-review" class="right-tab-pane" role="tabpanel"
+         aria-labelledby="tab-review">
+      <div class="section">
+        <div class="section-title-row">
+          <div class="section__title">Pending Review</div>
+          <button class="btn btn-secondary" id="btn-refresh-review" type="button"
+                  style="padding:3px 9px; font-size:0.71rem" aria-label="Refresh review queue">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="review-queue-list" aria-label="Review queue"></div>
+        <p id="review-queue-empty" class="audit-empty-msg" style="display:none">
+          No decisions pending review.
+        </p>
+      </div>
+    </div>
+
+    <!-- Audit log tab -->
+    <div id="pane-audit" class="right-tab-pane" role="tabpanel"
+         aria-labelledby="tab-audit">
+      <div class="section">
+        <div class="section-title-row">
+          <div class="section__title">Audit Log</div>
+          <button class="btn btn-secondary" id="btn-refresh-audit" type="button"
+                  style="padding:3px 9px; font-size:0.71rem" aria-label="Refresh audit log">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="audit-list" aria-label="Audit log entries"></div>
+        <p id="audit-empty" class="audit-empty-msg" style="display:none">
+          No audit entries yet.
+        </p>
+      </div>
+    </div>
+
+  </section><!-- /right panel -->
+
+</main>
+
+<!-- =========================================================
+     SCRIPTS
+     ========================================================= -->
+<script src="api.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+
+<script>
+"use strict";
+
+function toggleCollapsible(btn, bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const collapsed = body.classList.toggle("collapsed");
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  const caret = btn.querySelector(".caret");
+  if (caret) caret.textContent = collapsed ? "▸" : "▾";
+}
+
+function switchRightTab(name) {
+  document.querySelectorAll(".right-tab").forEach(t => {
+    const active = t.id === `tab-${name}`;
+    t.classList.toggle("active", active);
+    t.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll(".right-tab-pane").forEach(p => {
+    p.classList.toggle("active", p.id === `pane-${name}`);
+  });
+}
+</script>
+
+</body>
+</html>

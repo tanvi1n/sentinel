@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "service": "sentinel",
+  "semantic_mode": "mock",
+  "semantic_provider": "MOCK",
+  "semantic_key_configured": "no"
+}

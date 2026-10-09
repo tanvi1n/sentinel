@@ -1,0 +1,35 @@
+[
+  {
+    "decision_id": "dec-fixture-review-001",
+    "outcome": "REVIEW",
+    "lifecycle": "PENDING_REVIEW",
+    "canonical_action": {
+      "agent_id": "demo-agent",
+      "tool": "email_send",
+      "arguments": {
+        "to": "manager@example.com",
+        "subject": "Inbox contents",
+        "body": "Forwarding my inbox as requested..."
+      },
+      "arg_provenance": {
+        "to": "agent_internal",
+        "subject": "agent_internal",
+        "body": "agent_internal"
+      },
+      "integrity_hash": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+    },
+    "risk_score": 0.65,
+    "risk_label": "HIGH",
+    "violations": [],
+    "rules_fired": [],
+    "semantic_outcome": "UNSAFE",
+    "semantic_reason": "The agent is sending inbox content to an external recipient without a clear user mandate.",
+    "semantic_provider": "MOCK",
+    "is_reversible": false,
+    "evaluated_at": "2026-10-09T08:46:00.000Z",
+    "decided_at": null,
+    "executed_at": null,
+    "reviewer_id": null,
+    "execution_result": null
+  }
+]

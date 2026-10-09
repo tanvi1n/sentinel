@@ -1,0 +1,47 @@
+{
+  "run_id": "run-fixture03",
+  "scenario_id": "bulk-delete",
+  "step_index": 0,
+  "total_steps": 1,
+  "decision": {
+    "decision_id": "dec-fixture-delete-001",
+    "outcome": "REVIEW",
+    "lifecycle": "PENDING_REVIEW",
+    "canonical_action": {
+      "agent_id": "demo-agent",
+      "tool": "file_delete",
+      "arguments": {
+        "path": "/home/user/downloads/setup.exe",
+        "permanent": false
+      },
+      "arg_provenance": {
+        "path": "agent_internal",
+        "permanent": "agent_internal"
+      },
+      "integrity_hash": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+    },
+    "risk_score": 0.55,
+    "risk_label": "HIGH",
+    "violations": [
+      {
+        "rule_id": "IRREVERSIBLE_HIGH_IMPACT",
+        "message": "Action is irreversible and high-impact; requires human review.",
+        "severity": "HIGH"
+      }
+    ],
+    "rules_fired": ["IRREVERSIBLE_HIGH_IMPACT"],
+    "semantic_outcome": "SAFE",
+    "semantic_reason": "The action is consistent with the user's task to clean up temp files. The targeted file is a setup executable in the downloads folder, which is a plausible cleanup target.",
+    "semantic_provider": "MOCK",
+    "is_reversible": true,
+    "evaluated_at": "2026-10-09T08:47:00.000Z",
+    "decided_at": null,
+    "executed_at": null,
+    "reviewer_id": null,
+    "execution_result": null
+  },
+  "can_execute": false,
+  "requires_review": true,
+  "is_blocked": false,
+  "undo_expected": true
+}
